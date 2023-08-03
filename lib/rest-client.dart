@@ -18,6 +18,39 @@ class RestClient {
     return resp;
   }
 
+  Future<http.Response> getVisitorPhysicalInfo(String jwtToken) async {
+    try {
+      http.Response resp = await http.get(
+        Uri.parse('http://109.86.250.207:8070/api/phys_info/'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwtToken'
+        },
+      );
+
+      return resp;
+    } on Exception catch (e) {
+      return http.Response('$e', 408);
+    }
+  }
+
+  Future<http.Response> sendVisitorPhysicalInfo(
+      String jwtToken, double height, double weight) async {
+    try {
+      http.Response resp = await http.post(
+          Uri.parse('http://109.86.250.207:8070/api/phys_info'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $jwtToken'
+          },
+          body: '{"height": $height, "weight": $weight}');
+
+      return resp;
+    } on Exception catch (e) {
+      return http.Response('$e', 408);
+    }
+  }
+
   Future<http.Response> markAttendance(String jwtToken, int trainingId) async {
     try {
       http.Response resp = await http.post(
@@ -138,7 +171,8 @@ class RestClient {
               String clubName = clubBodyJSON['name'];
               var formatter = DateFormat('EEE dd/MM HH:mm:ss');
               var formatted = formatter.format(startTime);
-              menuPairs.addAll({'${i + 1} - $clubName $formatted': trainingId.toString()});
+              menuPairs.addAll(
+                  {'${i + 1} - $clubName $formatted': trainingId.toString()});
             } else if (getClubResponse.statusCode == 500) {
               menuPairs.addAll({'ERROR getting': '-1'});
             }

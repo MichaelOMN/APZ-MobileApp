@@ -32,6 +32,8 @@ class HomeMainPage extends StatefulWidget {
 class _HomeMainPageState extends State<HomeMainPage> {
   String? firstItem = null;
   RestClient restClient = RestClient();
+  late TextEditingController heightController;
+  late TextEditingController weightController;
 
   double? myHeight;
   double? myWeight;
@@ -39,7 +41,12 @@ class _HomeMainPageState extends State<HomeMainPage> {
   @override
   void initState() {
     super.initState();
+    heightController = TextEditingController();
+    weightController = TextEditingController();
+    initTrainingsList();
+  }
 
+  void initTrainingsList() {
     restClient.getTrainings(widget.token).then((value) {
       if (value.isNotEmpty) {
         menuList.clear();
@@ -120,8 +127,26 @@ class _HomeMainPageState extends State<HomeMainPage> {
           Text("Your height is: ${myHeight ?? 'not set!'}"),
           Text("Your weight is: ${myWeight ?? 'not set!'}"),
           OutlinedButton(
-              onPressed: () {
-                openDialog();
+              onPressed: () async {
+                final dataMap = await openDialog();
+                if (dataMap == null ||
+                    dataMap['height']!.isEmpty ||
+                    dataMap['weight']!.isEmpty) return;
+                double height = double.parse(dataMap['height']!);
+                double weight = double.parse(dataMap['weight']!);
+
+                restClient
+                    .sendVisitorPhysicalInfo(widget.token, height, weight)
+                    .then((resp) {
+                  if (resp.statusCode == 200) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Your info set successfully!')));
+                    setVisitorInfoValues(height, weight);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('ERROR: ${resp.body}')));
+                  }
+                });
               },
               child: const Text('Edit my parameters')),
         ],
@@ -129,7 +154,35 @@ class _HomeMainPageState extends State<HomeMainPage> {
     );
   }
 
-  Future openDialog() => showDialog(
+  void setVisitorInfoValues(double height, double weight) {
+    if (height > 0 && weight > 0) {
+      // data already available
+      setState(() {
+        myHeight = height;
+        myWeight = weight;
+      });
+    } else {
+      // firstly, get info and then set states
+      restClient.getVisitorPhysicalInfo(widget.token).then((resp) {
+        if (resp.statusCode == 200) {
+          dynamic bodyJSON = jsonDecode(resp.body);
+          height = bodyJSON['height'];
+          weight = bodyJSON['weight'];
+          setState(() {
+            myHeight = height;
+            myWeight = weight;
+          });
+        } else {
+          setState(() {
+            myHeight = null;
+            myWeight = null;
+          });
+        }
+      });
+    }
+  }
+
+  Future<Map<String, String>?> openDialog() => showDialog<Map<String, String>>(
       context: context,
       builder: (context) => AlertDialog(
             title: Text("Edit values"),
@@ -139,22 +192,29 @@ class _HomeMainPageState extends State<HomeMainPage> {
                 TextField(
                   decoration: InputDecoration(hintText: "Enter new height"),
                   autofocus: true,
+                  controller: heightController,
                 ),
-                SizedBox(height: 15,),
+                SizedBox(
+                  height: 15,
+                ),
                 TextField(
                   decoration: InputDecoration(hintText: "Enter new weight"),
+                  controller: weightController,
                 ),
               ],
             ),
-
-            // ),
             actions: [
               TextButton(
+                onPressed: submit,
                 child: Text("Submit"),
-                onPressed: () {},
               )
             ],
           ));
+
+  void submit() {
+    Navigator.of(context).pop(
+        {'height': heightController.text, 'weight': weightController.text});
+  }
 }
 
 class HomePage extends StatefulWidget {
