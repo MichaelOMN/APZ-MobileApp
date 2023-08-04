@@ -44,6 +44,7 @@ class _HomeMainPageState extends State<HomeMainPage> {
     heightController = TextEditingController();
     weightController = TextEditingController();
     initTrainingsList();
+    setVisitorInfoValues(-1, -1);
   }
 
   void initTrainingsList() {
@@ -135,18 +136,37 @@ class _HomeMainPageState extends State<HomeMainPage> {
                 double height = double.parse(dataMap['height']!);
                 double weight = double.parse(dataMap['weight']!);
 
-                restClient
-                    .sendVisitorPhysicalInfo(widget.token, height, weight)
-                    .then((resp) {
-                  if (resp.statusCode == 200) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('Your info set successfully!')));
-                    setVisitorInfoValues(height, weight);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('ERROR: ${resp.body}')));
-                  }
-                });
+                if (myHeight == null || myWeight == null) {
+                  // height and weight not exist
+                  restClient
+                      .sendVisitorPhysicalInfo(widget.token, height, weight)
+                      .then((resp) {
+                    if (resp.statusCode == 200) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Your info set successfully!')));
+                      setVisitorInfoValues(height, weight);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text(
+                              'ERROR: ${resp.body}, CODE ${resp.statusCode}')));
+                    }
+                  });
+                }
+                else{
+                  restClient
+                      .updateVisitorPhysicalInfo(widget.token, height, weight)
+                      .then((resp) {
+                    if (resp.statusCode == 200) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                          content: Text('Your info updated successfully!')));
+                      setVisitorInfoValues(height, weight);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text(
+                              'ERROR: ${resp.body}, CODE ${resp.statusCode}')));
+                    }
+                  });
+                }
               },
               child: const Text('Edit my parameters')),
         ],
@@ -166,8 +186,8 @@ class _HomeMainPageState extends State<HomeMainPage> {
       restClient.getVisitorPhysicalInfo(widget.token).then((resp) {
         if (resp.statusCode == 200) {
           dynamic bodyJSON = jsonDecode(resp.body);
-          height = bodyJSON['height'];
-          weight = bodyJSON['weight'];
+          height = double.parse(bodyJSON['height'].toString());
+          weight = double.parse(bodyJSON['weight'].toString());
           setState(() {
             myHeight = height;
             myWeight = weight;

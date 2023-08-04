@@ -21,13 +21,14 @@ class RestClient {
   Future<http.Response> getVisitorPhysicalInfo(String jwtToken) async {
     try {
       http.Response resp = await http.get(
-        Uri.parse('http://109.86.250.207:8070/api/phys_info/'),
+        Uri.parse('http://109.86.250.207:8070/api/phys_info'),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $jwtToken'
         },
       );
 
+      print("Info response: |${resp.body}|");
       return resp;
     } on Exception catch (e) {
       return http.Response('$e', 408);
@@ -38,7 +39,24 @@ class RestClient {
       String jwtToken, double height, double weight) async {
     try {
       http.Response resp = await http.post(
-          Uri.parse('http://109.86.250.207:8070/api/phys_info'),
+          Uri.parse('http://109.86.250.207:8070/api/phys_info/'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $jwtToken'
+          },
+          body: '{"height": $height, "weight": $weight}');
+
+      return resp;
+    } on Exception catch (e) {
+      return http.Response('$e', 408);
+    }
+  }
+
+  Future<http.Response> updateVisitorPhysicalInfo(
+      String jwtToken, double height, double weight) async {
+    try {
+      http.Response resp = await http.put(
+          Uri.parse('http://109.86.250.207:8070/api/phys_info/'),
           headers: {
             'Content-Type': 'application/json',
             'Authorization': 'Bearer $jwtToken'
