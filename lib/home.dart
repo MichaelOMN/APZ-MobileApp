@@ -1,6 +1,7 @@
 // ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables
 
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_barcode_scanner/flutter_barcode_scanner.dart';
@@ -8,6 +9,8 @@ import 'package:circular_countdown_timer/circular_countdown_timer.dart';
 import 'package:duration_picker/duration_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:loginapp1/rest-client.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
+import 'package:intl/intl.dart';
 
 Map<String, String> dropDownTrainingsMap = {}; //{'Select training': '-1'};
 List<DropdownMenuItem<String>> menuList = [];
@@ -74,17 +77,37 @@ class _HomeMainPageState extends State<HomeMainPage> {
         children: [
           Center(
             child: Text(
-                style: TextStyle(fontSize: theme.textTheme.bodyLarge?.fontSize),
+                style: TextStyle(
+                    fontSize: 1.7 * theme.textTheme.bodyLarge!.fontSize!),
                 widget.isVisitor
                     ? "Hello, visitor ${widget.username}!"
                     : "Hello, coach ${widget.username}!"),
           ),
-          Center(
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text("Go back!"),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text("Go back!"),
+          ),
+          SizedBox(
+            height: 20,
+          ),
+          SizedBox(
+            width: MediaQuery.of(context).size.width / 1.5,
+            child: Center(
+              child: DropdownButton<String>(
+                //hint: const Text("Select training"),
+                isExpanded: true,
+                value: firstItem,
+                icon: const Icon(Icons.arrow_drop_down),
+                items: menuList,
+                onChanged: (String? value) {
+                  setState(() {
+                    firstItem = value!;
+                    print("Chosen $firstItem");
+                  });
+                },
+              ),
             ),
           ),
           Center(
@@ -108,25 +131,12 @@ class _HomeMainPageState extends State<HomeMainPage> {
                 label: const Text("Mark attendance")),
           ),
           SizedBox(
-            width: MediaQuery.of(context).size.width / 1.5,
-            child: Center(
-              child: DropdownButton<String>(
-                //hint: const Text("Select training"),
-                isExpanded: true,
-                value: firstItem,
-                icon: const Icon(Icons.arrow_drop_down),
-                items: menuList,
-                onChanged: (String? value) {
-                  setState(() {
-                    firstItem = value!;
-                    print("Chosen $firstItem");
-                  });
-                },
-              ),
-            ),
+            height: 30,
           ),
-          Text("Your height is: ${myHeight ?? 'not set!'}"),
-          Text("Your weight is: ${myWeight ?? 'not set!'}"),
+          Text("Your height is: ${myHeight ?? 'not set!'}",
+              style: TextStyle(fontSize: theme.textTheme.bodyLarge!.fontSize!)),
+          Text("Your weight is: ${myWeight ?? 'not set!'}",
+              style: TextStyle(fontSize: theme.textTheme.bodyLarge!.fontSize!)),
           OutlinedButton(
               onPressed: () async {
                 final dataMap = await openDialog();
@@ -151,8 +161,7 @@ class _HomeMainPageState extends State<HomeMainPage> {
                               'ERROR: ${resp.body}, CODE ${resp.statusCode}')));
                     }
                   });
-                }
-                else{
+                } else {
                   restClient
                       .updateVisitorPhysicalInfo(widget.token, height, weight)
                       .then((resp) {
@@ -168,7 +177,9 @@ class _HomeMainPageState extends State<HomeMainPage> {
                   });
                 }
               },
-              child: const Text('Edit my parameters')),
+              child: Text('Edit my parameters',
+                  style: TextStyle(
+                      fontSize: theme.textTheme.bodyLarge!.fontSize!))),
         ],
       ),
     );
@@ -271,6 +282,8 @@ class _HomePageState extends State<HomePage> {
         page = TrainingQRChooserPage(
           JWTToken: String.fromCharCodes(widget.JWTToken.runes),
         );
+      case 2:
+        page = StatisticsPage(jwtToken: widget.JWTToken);
       default:
         throw UnimplementedError('no widget for $destinationIndex');
     }
@@ -292,6 +305,10 @@ class _HomePageState extends State<HomePage> {
                 icon: Icon(Icons.qr_code),
                 label: Text('Training'),
               ),
+              NavigationRailDestination(
+                icon: Icon(Icons.emoji_events),
+                label: Text('Stats'),
+              ),
             ],
             selectedIndex: destinationIndex,
             onDestinationSelected: (value) {
@@ -305,6 +322,132 @@ class _HomePageState extends State<HomePage> {
             child: Container(
                 color: Theme.of(context).colorScheme.primaryContainer,
                 child: page)),
+      ]),
+    );
+  }
+}
+
+class SeriesData {
+  SeriesData(this.at, this.payload);
+  final DateTime at;
+  final num payload;
+}
+
+class StatisticsPage extends StatefulWidget {
+  StatisticsPage({super.key, required this.jwtToken});
+
+  String jwtToken;
+  //String activityName;
+
+  @override
+  State<StatisticsPage> createState() => _StatisticsPageState();
+}
+
+class _StatisticsPageState extends State<StatisticsPage> {
+  late List<SeriesData> chartData = [];
+  RestClient restClient = RestClient();
+
+  @override
+  void initState() {
+    // chartData = <SeriesData>[
+    //   //SeriesData(DateTime(2022, 02, 01), 20),
+    //   // SeriesData(DateTime(2022, 02, 02), 10),
+    //   // SeriesData(DateTime(2022, 02, 03), 20),
+    //   // SeriesData(DateTime(2022, 02, 04), 30),
+    //   // SeriesData(DateTime(2022, 02, 05), 20),
+    //   // SeriesData(DateTime(2022, 02, 06), 30),
+    //   // SeriesData(DateTime(2022, 02, 07), 10),
+    //   // SeriesData(DateTime(2022, 02, 08), 20),
+    //   // SeriesData(DateTime(2022, 02, 09), 10),
+    //   // SeriesData(DateTime(2022, 02, 10), 30)
+    // ];
+    if (ActivityService.setFlag) {
+      restClient
+          .getUserStatistics(widget.jwtToken, ActivityService.activityName)
+          .then((resp) {
+        if (resp.statusCode == 200) {
+          dynamic body = jsonDecode(resp.body);
+          if (body is List) {
+            for (dynamic actState in body) {
+              double value = actState['unit_amount'] * actState['secs'];
+              DateTime at = DateTime.parse(actState['at']);
+              chartData.add(SeriesData(at, value));
+            }
+            setState(() {});
+          } else {
+            // incorrect response format
+            ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('ERROR: incorrect response format')));
+          }
+        } else {
+          // server/connection error
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text('ERROR: ${resp.statusCode} - ${resp.body}')));
+        }
+      });
+    }
+    super.initState();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(children: [
+        Text(
+            'Тренажер: ${ActivityService.setFlag ? ActivityService.activityName : "не обрано!"}'),
+        SfCartesianChart(
+            primaryXAxis: DateTimeAxis(
+              dateFormat: DateFormat("M-d\nH:M:S"),
+            ),
+            series: <ChartSeries<SeriesData, DateTime>>[
+              LineSeries(
+                  dataSource: chartData,
+                  xValueMapper: (SeriesData sales, _) => sales.at,
+                  yValueMapper: (SeriesData sales, _) => sales.payload)
+            ]),
+        ElevatedButton.icon(
+            onPressed: !ActivityService.setFlag
+                ? null
+                : () {
+                    List<SeriesData> t = [];
+
+                    restClient
+                        .getUserStatistics(
+                            widget.jwtToken,
+                            ActivityService.setFlag
+                                ? ActivityService.activityName
+                                : "")
+                        .then((resp) {
+                      if (resp.statusCode == 200) {
+                        //print("body of statistics: ${resp.body}");
+                        dynamic body = jsonDecode(resp.body);
+                        if (body is List) {
+                          for (dynamic actState in body) {
+                            double value =
+                                actState['unit_amount'] * actState['secs'];
+                            DateTime at = DateTime.parse(actState['at']);
+                            t.add(SeriesData(at, value));
+                          }
+                          setState(() {
+                            chartData.clear();
+                            chartData.addAll(t);
+                          });
+                        } else {
+                          // incorrect response format
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content:
+                                  Text('ERROR: incorrect response format')));
+                        }
+                      } else {
+                        // server/connection error
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text(
+                                'ERROR: ${resp.statusCode} - ${resp.body}')));
+                      }
+                    });
+                  },
+            icon: Icon(Icons.refresh),
+            label: Text("Refresh")),
       ]),
     );
   }
@@ -346,6 +489,8 @@ class _TrainingQRChooserPageState extends State<TrainingQRChooserPage> {
 
     setState(() {
       scannedActivityQR = barcodeScanRes;
+      ActivityService.activityName = barcodeScanRes;
+      ActivityService.setFlag = true;
     });
   }
 

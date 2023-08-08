@@ -2,11 +2,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 
-class MenuPair {
-  int trainingId;
-  String label;
-
-  MenuPair({required this.trainingId, required this.label});
+class ActivityService {
+  static String activityName = "";
+  static bool setFlag = false;
 }
 
 class RestClient {
@@ -16,6 +14,24 @@ class RestClient {
     http.Response resp =
         await http.get(Uri.parse("http://109.86.250.207:8070/ping"));
     return resp;
+  }
+
+  Future<http.Response> getUserStatistics(
+      String jwtToken, String activityName) async {
+    try {
+      var encodedName = Uri.encodeComponent(activityName);
+      var url =
+          "http://109.86.250.207:8070/api/stats/activity_usages?activityName=$encodedName";
+
+      http.Response resp = await http.get(Uri.parse(url), headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $jwtToken'
+      });
+
+      return resp;
+    } on Exception catch (e) {
+      return http.Response('$e', 408);
+    }
   }
 
   Future<http.Response> getVisitorPhysicalInfo(String jwtToken) async {

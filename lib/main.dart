@@ -29,7 +29,7 @@ class Login extends StatefulWidget {
   const Login({super.key, required this.title});
 
   final String title;
-
+  
   @override
   State<Login> createState() => _LoginState();
 }
@@ -46,6 +46,7 @@ class _LoginState extends State<Login> {
   
   @override
   void initState() {
+    
     super.initState();
     _passwordObscured = true;
     _responseText = '';
